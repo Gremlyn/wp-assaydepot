@@ -1,0 +1,3 @@
+[submodule "adphp"]
+	path = adphp
+	url = git://github.com/assaydepot/assaydepot-php.git
