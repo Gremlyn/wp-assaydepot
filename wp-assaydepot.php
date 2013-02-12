@@ -25,48 +25,140 @@ require_once('PHP-OAuth2/GrantType/ClientCredentials.php');
 $client = new OAuth2\Client(CLIENT_ID, CLIENT_SECRET, 1);
 $params = array();
 $response = $client->getAccessToken(TOKEN_ENDPOINT, 'client_credentials', $params);
-$access_token = $response['result']['access_token'];
 
-/**
- * Set variables from query string, and sanitise while we're at it.
- */
-$page = (get_query_var('page')) ? get_query_var('page') : '';
-if (!is_int($page) && $page != '') {
-    $page = '';
-}
-
-$queryad = (get_query_var('queryad')) ? get_query_var('queryad') : '';
-$queryad = sanitize_text_field($queryad);
+define('ACCESS_TOKEN', $response['result']['access_token']);
 
 /**
  * Results Processing and Display Functions
  */
 function ad_search_results($args) {
+    // Set variables from query string, and sanitise while we're at it.
+    $page = (get_query_var('page')) ? get_query_var('page') : '';
+    if (!is_int($page) && $page != '') {
+        $page = '';
+    }
+
+    $query = (isset($_GET['queryad'])) ? $_GET['queryad'] : '';
+    $query = sanitize_text_field($query);
+
     extract( shortcode_atts( array(
             'type' => '',
             'page' => $page,
-            'per_page' => '',
+            'per_page' => 10,
             'sort_by' => '',
             'sort_order' => '',
-            'query' => $queryad
+            'query' => $query,
+            'facets' => '',
+            'search' => TRUE
     ), $args) );
 
     // Instantiate the class
-    $assaydepot = new assaydepot($access_token, AD_URL);
+    $assaydepot = new assaydepot(ACCESS_TOKEN, AD_URL);
 
     // Set options, if they exist
-    ($args['page'] != '') ? $assaydepot->option_set('page', $args['page']) : NULL;
-    ($args['per_page'] != '') ? $assaydepot->option_set('per_page', $args['per_page']) : NULL;
-    ($args['sort_by'] != '') ? $assaydepot->option_set('sort_by', $args['sort_by']) : NULL;
-    ($args['sort_order'] != '') ? $assaydepot->option_set('sort_order', $args['sort_order']) : NULL;
+    ($page != '') ? $assaydepot->option_set('page', $page) : NULL;
+    ($per_page != '') ? $assaydepot->option_set('per_page', $per_page) : NULL;
+    ($sort_by != '') ? $assaydepot->option_set('sort_by', $sort_by) : NULL;
+    ($sort_order != '') ? $assaydepot->option_set('sort_order', $sort_order) : NULL;
+
+    // Handle the facets, if any, and set them
+    $facets = ($facets != '') ? explode(';', $facets) : '';
+    if (is_array($facets)) {
+        foreach ($facets as $facet) {
+            $facet = explode('=', $facet);
+            $assaydepot->facet_set($facet[0], $facet[1]);
+        }
+    }
 
     // Pass required args to search (builds the search URL, doesn't perform it)
-    $assaydepot->search($args['type'], $args['query']);
+    $assaydepot->search($type, $query);
 
     // Make API call and receive back associative array with results
-    $search_output = $assaydepot->json_output();
+    $json = $assaydepot->json_output();
 
+    switch($args['type']) {
+        case 'providers':
+            $type_ref = 'provider_refs';
+            break;
+        case 'wares':
+            $type_ref = 'ware_refs';
+            break;
+    }
+
+    // Do we want the search form? Build it if so
+    if ($search) {
+        $search_output = '<div style="max-width: 75%; text-align: right;">';
+        if ($query != '') {
+            $search_output .= '<div style="max-width: 65%; float: left;">';
+            $search_output .= '<p style="font-style: italic; text-align: left;">';
+            $search_output .= 'Your search for "'.$query.'" returned '.$json['total'].' results.</p>';
+            $search_output .= '</div>';
+        }
+        $search_output .= '<form method="get" action="'.get_permalink().'">';
+        $search_output .= '<input type="text" placeholder="Enter Search Term(s)..." name="queryad"/><br />';
+        $search_output .= '<input type="submit" value="submit" name="submit" />';
+        $search_output .= '</form>';
+        $search_output .= '</div>';
+    } else {
+        $search_output = '';
+    }
+
+    /*echo "<pre>";
+    print_r($json);
+    echo "</pre>";*/
+
+    // Create the Output
+    $output = $search_output;
+    $output .= '<ul style="list-style-type: none;">';
+    foreach ($json[$type_ref] as $arr) {
+        if (isset($arr['providers'])) {
+            $provider_count = count($arr['providers']);
+
+            if ($provider_count > 1) {
+                $provider_output = '<p style="font-size: 85%; font-weight: bold;">'.$provider_count.' Providers</p>';
+            } else {
+                $provider_output = '<p style="font-size: 85%; font-weight: bold;">Provider: '.$arr['providers'][0]['name'].'</p>';
+            }
+        } else {
+            $provider_output = '';
+        }
+
+        $output .= '<li style="max-width: 75%; padding: 5px;">';
+        $output .= '<h3>'.$arr['name'].'</h3>';
+        $output .= '<p>'.$arr['snippet'].'</p>';
+        $output .= $provider_output;
+        $output .= '</li>';
+    }
+    $output .= '</ul>';
+
+    // How many pages do we have? Do we need to paginate?
+    $total_pages = ceil($json['total']/$json['per_page']);
+    if ($total_pages > 1) {
+        $output .= '<div style="max-width: 75%;">';
+        if ($json['page'] != 1) {
+            $output .= '<div style="max-width: 25%; float: left;">';
+            $output .= '<a href="'.get_permalink().'?queryad='.$query.'&page='.($json['page']-1).'">';
+            $output .= '&laquo; Previous';
+            $output .= '</a>';
+            $output .= '</div>';
+        }
+        if ($json['page'] != $total_pages) {
+            $output .= '<div style="max-width: 25%; float: right;">';
+            $output .= '<a href="'.get_permalink().'?queryad='.$query.'&page='.($json['page']+1).'">';
+            $output .= 'Next &raquo;';
+            $output .= '</a>';
+            $output .= '</div>';
+        }
+        $output .= '</div>';
+    }
+    if ($total_pages > 0) {
+        $output .= '<div style="max-width: 75%; text-align: center; clear: both;">';
+        $output .= 'Page '.$json['page'].' of '.$total_pages;
+        $output .= '</div>';
+    }
+
+    return $output;
 }
-add_shortcode('ad_search_results', 'ad_search_results');
+add_shortcode('assaydepot', 'ad_search_results');
 
 ?>
