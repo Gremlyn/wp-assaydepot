@@ -13,7 +13,7 @@ License: MIT LICENSE
 */
 
 require_once('ad-config.php');
-require_once('adphp/lib/assaydepot.php');
+require_once('assaydepot-php/lib/assaydepot.php');
 
 require_once('PHP-OAuth2/Client.php');
 require_once('PHP-OAuth2/GrantType/IGrantType.php');
