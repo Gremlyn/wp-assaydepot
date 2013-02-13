@@ -89,16 +89,17 @@ function ad_search_results($args) {
     if ($search) {
         $search_output = '<div style="max-width: 75%; text-align: right;">';
         if ($query != '') {
-            $search_output .= '<div style="max-width: 65%; float: left;">';
+            $search_output .= '<div style="max-width: 50%; float: left;">';
             $search_output .= '<p style="font-style: italic; text-align: left;">';
             $search_output .= 'Your search for "'.$query.'" returned '.$json['total'].' results.</p>';
             $search_output .= '</div>';
         }
-        $search_output .= '<form method="get" action="'.get_permalink().'">';
+        $search_output .= '<form method="get" action="'.get_permalink().'" style="max-width: 50%; float:right">';
         $search_output .= '<input type="text" placeholder="Enter Search Term(s)..." name="queryad"/><br />';
         $search_output .= '<input type="submit" value="submit" name="submit" />';
         $search_output .= '</form>';
         $search_output .= '</div>';
+        $search_output .= '<div style="clear:both;"></div>';
     } else {
         $search_output = '';
     }
@@ -109,7 +110,7 @@ function ad_search_results($args) {
 
     // Create the Output
     $output = $search_output;
-    $output .= '<ul style="list-style-type: none;">';
+    $output .= '<ul style="list-style-type: none; margin: 0; max-width: 75%">';
     foreach ($json[$type_ref] as $arr) {
         if (isset($arr['providers'])) {
             $provider_count = count($arr['providers']);
@@ -123,7 +124,7 @@ function ad_search_results($args) {
             $provider_output = '';
         }
 
-        $output .= '<li style="max-width: 75%; padding: 5px;">';
+        $output .= '<li style="padding: 5px;">';
         $output .= '<h3>'.$arr['name'].'</h3>';
         $output .= '<p>'.$arr['snippet'].'</p>';
         $output .= $provider_output;
