@@ -29,8 +29,50 @@ $response = $client->getAccessToken(TOKEN_ENDPOINT, 'client_credentials', $param
 define('ACCESS_TOKEN', $response['result']['access_token']);
 
 /**
+ * Create Shortcodes
+ */
+add_shortcode('assaydepot-search', 'ad_search_form');
+add_shortcode('assaydepot', 'ad_search_results');
+
+/**
  * Results Processing and Display Functions
  */
+function ad_search_form($args) {
+    // Set variables from query string, and sanitise while we're at it.
+    $query = (isset($_GET['queryad'])) ? $_GET['queryad'] : '';
+    $query = sanitize_text_field($query);
+
+    extract( shortcode_atts( array(
+            'type' => '',
+            'per_page' => 10,
+            'sort_by' => '',
+            'sort_order' => '',
+            'query' => $query,
+            'facets' => '',
+    ), $args) );
+
+    if ($query !='') {
+        $search_value = 'value="'.$query.'" ';
+    }
+
+    $output = '<div style="max-width: 75%; text-align: right;">';
+    $output .= '<form method="get" action="'.get_permalink().'" style="max-width: 50%; float:right">';
+    $output .= '<input type="text" placeholder="Enter Search Term(s)..." name="queryad" '.$search_value.'/><br />';
+    $output .= '<input type="submit" value="submit" name="submit" />';
+    $output .= '</form>';
+    $output .= '</div>';
+    $output .= '<div style="clear:both;"></div>';
+
+    $flags = "";
+    foreach ($args as $k=>$v) {
+        $flags .= " ".$k."=".$v;
+    }
+
+    $output .= do_shortcode('[assaydepot'.$flags.']');
+
+    return $output;
+}
+
 function ad_search_results($args) {
     // Set variables from query string, and sanitise while we're at it.
     $page = (get_query_var('page')) ? get_query_var('page') : '';
@@ -49,7 +91,6 @@ function ad_search_results($args) {
             'sort_order' => '',
             'query' => $query,
             'facets' => '',
-            'search' => TRUE
     ), $args) );
 
     // Instantiate the class
@@ -85,31 +126,16 @@ function ad_search_results($args) {
             break;
     }
 
-    // Do we want the search form? Build it if so
-    if ($search) {
-        $search_output = '<div style="max-width: 75%; text-align: right;">';
-        if ($query != '') {
-            $search_output .= '<div style="max-width: 50%; float: left;">';
-            $search_output .= '<p style="font-style: italic; text-align: left;">';
-            $search_output .= 'Your search for "'.$query.'" returned '.$json['total'].' results.</p>';
-            $search_output .= '</div>';
-        }
-        $search_output .= '<form method="get" action="'.get_permalink().'" style="max-width: 50%; float:right">';
-        $search_output .= '<input type="text" placeholder="Enter Search Term(s)..." name="queryad"/><br />';
-        $search_output .= '<input type="submit" value="submit" name="submit" />';
-        $search_output .= '</form>';
-        $search_output .= '</div>';
-        $search_output .= '<div style="clear:both;"></div>';
-    } else {
-        $search_output = '';
-    }
-
     /*echo "<pre>";
     print_r($json);
     echo "</pre>";*/
 
     // Create the Output
-    $output = $search_output;
+    $output = '';
+    if ($query != '') {
+        $output = '<p style="font-style: italic;">';
+        $output .= 'Your search for "'.$query.'" returned '.$json['total'].' results.</p>';
+    }
     $output .= '<ul style="list-style-type: none; margin: 0; max-width: 75%">';
     foreach ($json[$type_ref] as $arr) {
         if (isset($arr['providers'])) {
@@ -160,6 +186,6 @@ function ad_search_results($args) {
 
     return $output;
 }
-add_shortcode('assaydepot', 'ad_search_results');
+
 
 ?>
